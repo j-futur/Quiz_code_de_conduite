@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz - Code de Conduite pour Agents de Douane</title>
+    <link rel="stylesheet" href="style.css"></link>
+</head>
+<body>
+    <!-- Barre de progression -->
+    <div class="progress-container" id="progressContainer"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🛃 Quiz Code de Conduite</h1>
+            <p>Évaluation des connaissances pour les agents des Douanes</p>
+            <p style="font-size: 0.9em; opacity: 0.8; margin-top: 10px;">BASÉ SUR L'ARRÊTÉ 5886/2008 DU 06 MARS 2008</p>
+        </div>
+        
+        <div class="content">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="showTab('quiz')">📝 Passer le Quiz</button>
+                <button class="tab-button" onclick="showTab('stats')">📊 Statistiques</button>
+            </div>
+            
+            <div id="quiz-tab" class="tab-content active">
+                <!-- Formulaire d'informations personnelles -->
+                <div id="userInfoSection" class="user-info-form">
+                    <h2 style="text-align: center; margin-bottom: 25px; color: #2c3e50;">📋 Informations Agent</h2>
+                    <div class="form-group">
+                        <label for="matricule">Matricule :</label>
+                        <input type="text" id="matricule" required 
+                                            placeholder="Matricule [6 chiffres]"
+                                            maxlength="6" >
+                    </div>
+                    <div class="form-group">
+                        <label for="genre">Genre :</label>
+                        <select id="genre" required>
+                            <option value="">Sélectionner...</option>
+                            <option value="Masculin">Masculin</option>
+                            <option value="Féminin">Féminin</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="age">Âge :</label>
+                        <input type="number" id="age" min="18" max="65" required>
+                    </div>
+                    <button type="button" class="start-quiz-btn" onclick="startQuiz()">Commencer le Quiz</button>
+                </div>
+
+                <!-- Quiz complété -->
+                <div id="quizCompletedSection" class="quiz-completed" style="display: none;">
+                    <h2>🎯 Quiz Déjà Complété</h2>
+                    <p>Vous avez déjà passé ce quiz. Un seul passage est autorisé par agent.</p>
+                    <p style="margin-top: 15px; font-weight: bold;">Votre score : <span id="previousScore"></span></p>
+                    <button class="close-btn" onclick="closeQuiz()">Fermer le Quiz</button>
+                </div>
+
+                <form id="quizForm" style="display: none;">
+                    <!-- Questions will be generated here -->
+                    <button type="button" class="submit-btn" onclick="submitQuiz()">Envoyer mes réponses</button>
+                </form>
+                
+                <div id="results" class="results" style="display: none;">
+                    <div id="corrections" class="correction"></div>
+                    <div id="scoreSection" class="score">
+                        <div id="scoreCircle" class="score-circle">
+                            <span id="scoreText">0/20</span>
+                        </div>
+                        <h2 id="scoreMessage">Résultat</h2>
+                    </div>
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button class="close-btn" onclick="closeQuiz()">🚪 Fermer le Quiz</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="stats-tab" class="tab-content">
+                <h2 style="text-align: center; margin-bottom: 30px; color: #2c3e50;">📈 Statistiques des Agents</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalCompleted">0</div>
+                        <div class="stat-label">Agents ayant terminé</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="averageWomen">0/20</div>
+                        <div class="stat-label">Moyenne Féminin</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="averageMen">0/20</div>
+                        <div class="stat-label">Moyenne Masculin</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="averageOver40">0/20</div>
+                        <div class="stat-label">Moyenne > 40 ans</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="averageUnder40">0/20</div>
+                        <div class="stat-label">Moyenne < 40 ans</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
