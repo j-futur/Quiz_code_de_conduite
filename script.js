@@ -483,6 +483,14 @@ function showTab(tabName) {
 // Fermer le quiz
 function closeQuiz() {
     if (confirm('Êtes-vous sûr de vouloir fermer le quiz ?')) {
-        window.close();
+        if (window.opener) {
+            window.close();
+        } else {
+            document.body.style.transition = 'opacity 0.5s ease';
+            document.body.style.opacity = '0.5';
+            setTimeout(() => {
+                window.location.href = 'thanks.html';
+            }, 500);
+        }
     }
 }
