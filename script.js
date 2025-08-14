@@ -1,5 +1,17 @@
- // Base de données des questions - ARRÊTÉ 5886/2008 DU 06 MARS 2008
-const questions = [
+// =========================================================
+//  Quiz Code de Conduite – Firestore Edition
+// =========================================================
+
+// Import ciblé (via CDN déjà chargée dans firebase-config.js)
+import { collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Référence Firestore
+const resultsCol = collection(window.db, "results");
+
+// =========================================================
+//  Base de données des questions
+// =========================================================
+const questions = [ 
     {
         question: "Les procédures actuelles marchent et vous obtenez des résultats. Quelle attitude adoptez-vous ?",
         answers: [
@@ -182,315 +194,272 @@ const questions = [
     }
 ];
 
-// Variables pour stocker les données
-let currentAnswers = {};
-let userInfo = null;
-let quizResults = JSON.parse(localStorage.getItem('quizResults')) || {
-    completedAgents: [],
-    scores: []
-};
 
-// Conversion score sur 20
-function convertScoreTo20(percentage) {
-    return Math.round((percentage * 20) / 100);
+// =========================================================
+//  Utilitaires
+// =========================================================
+function convertScoreTo20(pct) {
+  return Math.round((pct * 20) / 100);
+}
+function scoreToText(s20) {
+  return s20 + "/20";
 }
 
-// Conversion score sur 20 vers texte
-function scoreToText(score20) {
-    return score20 + "/20";
-}
-
-// Initialisation
-document.addEventListener('DOMContentLoaded', function() {
-    updateStats();
-    checkIfAlreadyCompleted();
+// =========================================================
+//  Initialisation
+// =========================================================
+document.addEventListener("DOMContentLoaded", async () => {
+  await updateStats();
+  await checkIfAlreadyCompleted();
 });
 
-// Vérifier si l'agent a déjà complété le quiz
-function checkIfAlreadyCompleted() {
-    // Cette fonction sera appelée après la saisie du matricule
+// =========================================================
+//  Vérifie si l’agent a déjà terminé
+// =========================================================
+async function checkIfAlreadyCompleted() {
+  const matricule = document.getElementById("matricule").value.trim();
+  if (!matricule) return;
+
+  const snap = await getDocs(resultsCol);
+  const existing = snap.docs.find(d => d.data().matricule === matricule);
+
+  if (existing) {
+    document.getElementById("previousScore").textContent = scoreToText(existing.data().score20);
+    document.getElementById("userInfoSection").style.display = "none";
+    document.getElementById("quizCompletedSection").style.display = "block";
+  }
 }
 
-// Démarrer le quiz
-function startQuiz() {
-    const matricule = document.getElementById('matricule').value.trim();
-    const genre = document.getElementById('genre').value;
-    const age = parseInt(document.getElementById('age').value, 10);
+// =========================================================
+//  Démarrer le quiz
+// =========================================================
+let userInfo = null;
+let currentAnswers = {};
 
-    if (!(/^\d{6}$/.test(matricule)) || !genre || isNaN(age) || age < 18 || age > 65) {
-        alert("⚠️ Matricule 6 chiffres, genre et âge 18-65 ans requis.");
-        return;
-    }
+async function startQuiz() {
+  const matricule = document.getElementById("matricule").value.trim();
+  const genre = document.getElementById("genre").value;
+  const age = parseInt(document.getElementById("age").value, 10);
 
-    // Vérifier si l'agent a déjà passé le quiz
-    const existingAgent = quizResults.completedAgents.find(agent => agent.matricule === matricule);
-    if (existingAgent) {
-        document.getElementById('previousScore').textContent = scoreToText(existingAgent.score20);
-        document.getElementById('userInfoSection').style.display = 'none';
-        document.getElementById('quizCompletedSection').style.display = 'block';
-        return;
-    }
+  if (!/^\d{6}$/.test(matricule) || !genre || isNaN(age) || age < 18 || age > 65) {
+    alert("⚠️ Matricule 6 chiffres, genre et âge 18-65 ans requis.");
+    return;
+  }
 
-    userInfo = { matricule, genre, age };
-    
-    // Réinitialiser les réponses
-    currentAnswers = {};
-    
-    document.getElementById('userInfoSection').style.display = 'none';
-    document.getElementById('quizForm').style.display = 'block';
-    generateQuiz();
-    generateProgressBar();
+  // Vérif (déjà fait mais double sécurité)
+  const snap = await getDocs(resultsCol);
+  if (snap.docs.some(d => d.data().matricule === matricule)) {
+    document.getElementById("previousScore").textContent = "déjà réalisé";
+    document.getElementById("userInfoSection").style.display = "none";
+    document.getElementById("quizCompletedSection").style.display = "block";
+    return;
+  }
+
+  userInfo = { matricule, genre, age };
+  currentAnswers = {};
+
+  document.getElementById("userInfoSection").style.display = "none";
+  document.getElementById("quizForm").style.display = "block";
+  generateQuiz();
+  generateProgressBar();
 }
 
-// Génération du quiz
+// =========================================================
+//  Génération UI
+// =========================================================
 function generateQuiz() {
-    const form = document.getElementById('quizForm');
-    let html = '';
+  const form = document.getElementById("quizForm");
+  let html = "";
 
-    questions.forEach((q, index) => {
-        html += `
-            <div class="question-container">
-                <div class="question">
-                    <strong>Question ${index + 1}:</strong> ${q.question}
-                    ${q.multiple ? '<span style="color: #3498db; font-size: 0.9em;"> (Choisir une ou plusieurs réponses)</span>' : ''}
-                </div>
-                <div class="answers">
-                    ${q.answers.map((answer, ansIndex) => `
-                        <label class="answer-option">
-                            <input type="${q.multiple ? 'checkbox' : 'radio'}" name="question${index}" value="${ansIndex}" 
-                                    onchange="saveAnswer(${index}, ${ansIndex})">
-                            <span>${answer}</span>
-                        </label>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    });
+  questions.forEach((q, i) => {
+    html += `
+      <div class="question-container">
+        <div class="question"><strong>Question ${i + 1}:</strong> ${q.question}
+          ${q.multiple ? '<span style="color:#3498db;font-size:.9em;"> (Choisir une ou plusieurs)</span>' : ""}
+        </div>
+        <div class="answers">
+        ${q.answers.map((a, idx) => `
+          <label class="answer-option">
+            <input type="${q.multiple ? "checkbox" : "radio"}" name="question${i}" value="${idx}"
+                   onchange="saveAnswer(${i}, ${idx})">
+            <span>${a}</span>
+          </label>`).join("")}
+        </div>
+      </div>`;
+  });
 
-    html += '<button type="button" class="submit-btn" onclick="submitQuiz()">Envoyer mes réponses</button>';
-    form.innerHTML = html;
+  html += '<button type="button" class="submit-btn" onclick="submitQuiz()">Envoyer mes réponses</button>';
+  form.innerHTML = html;
 }
 
-// Génération de la barre de progression
+// Barre de progression
 function generateProgressBar() {
-    const progressContainer = document.getElementById('progressContainer');
-    let html = '';
-    questions.forEach((_, index) => {
-        html += `<div class="progress-square" id="progressSquare${index}"></div>`;
-    });
-    progressContainer.innerHTML = html;
-    updateProgressBar();
+  const pc = document.getElementById("progressContainer");
+  pc.innerHTML = questions.map((_, i) => `<div class="progress-square" id="progressSquare${i}"></div>`).join("");
+  updateProgressBar();
 }
-
-// Mise à jour de la barre de progression
 function updateProgressBar() {
-    questions.forEach((_, index) => {
-        const square = document.getElementById(`progressSquare${index}`);
-        if (square) {
-            if (currentAnswers[index] !== undefined && 
-                (Array.isArray(currentAnswers[index]) ? currentAnswers[index].length > 0 : true)) {
-                square.classList.add('answered');
-            } else {
-                square.classList.remove('answered');
-            }
-        }
-    });
+  questions.forEach((_, i) => {
+    const sq = document.getElementById(`progressSquare${i}`);
+    if (!sq) return;
+    const answered = currentAnswers[i] !== undefined && (Array.isArray(currentAnswers[i]) ? currentAnswers[i].length : true);
+    sq.classList.toggle("answered", answered);
+  });
 }
 
-// Sauvegarde des réponses
-function saveAnswer(questionIndex, answerIndex) {
-    const question = questions[questionIndex];
-    if (question.multiple) {
-        if (!Array.isArray(currentAnswers[questionIndex])) {
-            currentAnswers[questionIndex] = [];
-        }
-        const input = document.querySelector(`input[name="question${questionIndex}"][value="${answerIndex}"]`);
-        if (input.checked) {
-            if (!currentAnswers[questionIndex].includes(answerIndex)) {
-                currentAnswers[questionIndex].push(answerIndex);
-            }
-        } else {
-            currentAnswers[questionIndex] = currentAnswers[questionIndex].filter(ans => ans !== answerIndex);
-        }
+// Sauvegarde réponse
+function saveAnswer(qIdx, aIdx) {
+  const q = questions[qIdx];
+  if (q.multiple) {
+    if (!Array.isArray(currentAnswers[qIdx])) currentAnswers[qIdx] = [];
+    const inp = document.querySelector(`input[name="question${qIdx}"][value="${aIdx}"]`);
+    if (inp.checked) {
+      if (!currentAnswers[qIdx].includes(aIdx)) currentAnswers[qIdx].push(aIdx);
     } else {
-        currentAnswers[questionIndex] = answerIndex;
+      currentAnswers[qIdx] = currentAnswers[qIdx].filter(x => x !== aIdx);
     }
-    updateProgressBar();
+  } else {
+    currentAnswers[qIdx] = aIdx;
+  }
+  updateProgressBar();
 }
 
-// Soumission du quiz
-function submitQuiz() {
-    if (Object.keys(currentAnswers).length < questions.length) {
-        alert('⚠️ Veuillez répondre à toutes les questions avant de soumettre.');
-        return;
+// =========================================================
+//  Soumission finale
+// =========================================================
+async function submitQuiz() {
+  if (Object.keys(currentAnswers).length < questions.length) {
+    alert("⚠️ Veuillez répondre à toutes les questions.");
+    return;
+  }
+
+  let correct = 0;
+  const corrections = [];
+
+  questions.forEach((q, i) => {
+    const userAns = currentAnswers[i];
+    let ok;
+    if (q.multiple) {
+      const ua = Array.isArray(userAns) ? userAns : [];
+      ok = q.correct.length === ua.length && q.correct.every(c => ua.includes(c));
+    } else {
+      ok = userAns === q.correct;
     }
+    if (ok) correct++;
 
-    let correct = 0;
-    let corrections = [];
-
-    questions.forEach((q, index) => {
-        const userAnswer = currentAnswers[index];
-        let isCorrect;
-
-        if (q.multiple) {
-            const userAnswers = Array.isArray(userAnswer) ? userAnswer : [];
-            isCorrect = q.correct.length === userAnswers.length &&
-                        q.correct.every(correctAns => userAnswers.includes(correctAns)) &&
-                        userAnswers.every(ans => q.correct.includes(ans));
-        } else {
-            isCorrect = userAnswer === q.correct;
-        }
-
-        if (isCorrect) {
-            correct++;
-        }
-
-        corrections.push({
-            question: q.question,
-            userAnswer: q.multiple ? (Array.isArray(userAnswer) ? userAnswer.map(ans => q.answers[ans]).join(', ') : 'Aucune réponse') : q.answers[userAnswer],
-            correctAnswer: q.multiple ? q.correct.map(ans => q.answers[ans]).join(', ') : q.answers[q.correct],
-            isCorrect: isCorrect,
-            explanation: q.explanation
-        });
+    corrections.push({
+      question: q.question,
+      userAnswer: q.multiple
+        ? (Array.isArray(userAns) ? userAns.map(a => q.answers[a]).join(", ") : "Aucune")
+        : q.answers[userAns],
+      correctAnswer: q.multiple
+        ? q.correct.map(a => q.answers[a]).join(", ")
+        : q.answers[q.correct],
+      isCorrect: ok,
+      explanation: q.explanation
     });
+  });
 
-    const scorePercentage = Math.round((correct / questions.length) * 100);
-    const score20 = convertScoreTo20(scorePercentage);
+  const pct = Math.round((correct / questions.length) * 100);
+  //const score20 = convertScoreTo20(pct);
+  const score20 = Number(((pct * 20) / 100).toFixed(1));  // 1 décimale
 
-    // Sauvegarder les résultats
-    const agentResult = {
-        matricule: userInfo.matricule,
-        genre: userInfo.genre,
-        age: userInfo.age,
-        score: scorePercentage,
-        score20: score20,
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString()
-    };
+  const agentResult = {
+    matricule: userInfo.matricule,
+    genre: userInfo.genre,
+    age: userInfo.age,
+    score: pct,
+    score20,
+    date: new Date().toLocaleDateString(),
+    time: new Date().toLocaleTimeString(),
+    timestamp: new Date()
+  };
 
-    quizResults.completedAgents.push(agentResult);
-    quizResults.scores.push(agentResult);
-    
-    localStorage.setItem('quizResults', JSON.stringify(quizResults));
+  await addDoc(resultsCol, agentResult);
 
-    displayResults(score20, corrections);
-    updateStats();
+  displayResults(score20, corrections);
+  await updateStats();
 }
 
 // Affichage des résultats
 function displayResults(score20, corrections) {
-    const resultsDiv = document.getElementById('results');
-    const scoreSection = document.getElementById('scoreSection');
-    const scoreCircle = document.getElementById('scoreCircle');
-    const scoreText = document.getElementById('scoreText');
-    const scoreMessage = document.getElementById('scoreMessage');
-    const correctionsDiv = document.getElementById('corrections');
+  const scoreText = document.getElementById("scoreText");
+  const scoreCircle = document.getElementById("scoreCircle");
+  const scoreMessage = document.getElementById("scoreMessage");
+  const correctionsDiv = document.getElementById("corrections");
 
-    // Afficher le score sur 20
-    scoreText.textContent = scoreToText(score20);
-    
-    if (score20 >= 16) {
-        scoreCircle.className = 'score-circle score-excellent';
-        scoreMessage.textContent = '🎉 Excellent ! Félicitations !';
-    } else if (score20 >= 14) {
-        scoreCircle.className = 'score-circle score-good';
-        scoreMessage.textContent = '👍 Bien ! Continuez vos efforts.';
-    } else {
-        scoreCircle.className = 'score-circle score-poor';
-        scoreMessage.textContent = '📚 À améliorer. Révisez le code de conduite.';
-    }
+  scoreText.textContent = scoreToText(score20);
+  scoreCircle.className = "score-circle";
+  if (score20 >= 16) {
+    scoreCircle.classList.add("score-excellent");
+    scoreMessage.textContent = "🎉 Excellent ! Félicitations !";
+  } else if (score20 >= 14) {
+    scoreCircle.classList.add("score-good");
+    scoreMessage.textContent = "👍 Bien ! Continuez vos efforts.";
+  } else {
+    scoreCircle.classList.add("score-poor");
+    scoreMessage.textContent = "📚 À améliorer. Révisez le code de conduite.";
+  }
 
-    // Générer les corrections
-    let correctionsHtml = '<h3 style="margin-bottom: 20px; color: #2c3e50;">📋 Corrections Détaillées</h3>';
-    corrections.forEach((correction, index) => {
-        correctionsHtml += `
-            <div class="correction-item ${correction.isCorrect ? 'correct' : ''}">
-                <h4 style="color: ${correction.isCorrect ? '#27ae60' : '#e74c3c'}; margin-bottom: 10px;">
-                    ${correction.isCorrect ? '✅' : '❌'} Question ${index + 1}
-                </h4>
-                <p style="margin-bottom: 10px;"><strong>Question:</strong> ${correction.question}</p>
-                <p style="margin-bottom: 10px;"><strong>Votre réponse:</strong> ${correction.userAnswer}</p>
-                ${!correction.isCorrect ? `<p style="margin-bottom: 10px;"><strong>Bonne réponse:</strong> ${correction.correctAnswer}</p>` : ''}
-                <p style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: 10px;">
-                    <strong>Explication:</strong> ${correction.explanation}
-                </p>
-            </div>
-        `;
-    });
+  let html = "<h3 style='margin-bottom:20px;color:#2c3e50;'>📋 Corrections Détaillées</h3>";
+  corrections.forEach((c, i) => {
+    html += `
+      <div class="correction-item ${c.isCorrect ? "correct" : ""}">
+        <h4 style="color:${c.isCorrect ? "#27ae60" : "#e74c3c"}">${c.isCorrect ? "✅" : "❌"} Question ${i + 1}</h4>
+        <p><strong>Question :</strong> ${c.question}</p>
+        <p><strong>Votre réponse :</strong> ${c.userAnswer}</p>
+        ${!c.isCorrect ? `<p><strong>Bonne réponse :</strong> ${c.correctAnswer}</p>` : ""}
+        <p style="background:#f8f9fa;padding:10px;border-radius:5px"><strong>Explication :</strong> ${c.explanation}</p>
+      </div>`;
+  });
+  correctionsDiv.innerHTML = html;
 
-    correctionsDiv.innerHTML = correctionsHtml;
-    
-    // Afficher les sections
-    document.getElementById('quizForm').style.display = 'none';
-    resultsDiv.style.display = 'block';
-    scoreSection.style.display = 'block';
+  document.getElementById("quizForm").style.display = "none";
+  document.getElementById("results").style.display = "block";
 }
 
-// Mise à jour des statistiques
-function updateStats() {
-    const agents = quizResults.completedAgents || [];
-    
-    if (agents.length === 0) {
-        document.getElementById('totalCompleted').textContent = '0';
-        document.getElementById('averageWomen').textContent = '0/20';
-        document.getElementById('averageMen').textContent = '0/20';
-        document.getElementById('averageOver40').textContent = '0/20';
-        document.getElementById('averageUnder40').textContent = '0/20';
-        return;
-    }
+// =========================================================
+//  Stats dynamiques
+// =========================================================
+async function updateStats() {
+  const snap = await getDocs(resultsCol);
+  const agents = snap.docs.map(d => d.data());
 
-    // Total des agents
-    document.getElementById('totalCompleted').textContent = agents.length;
+  const total = agents.length;
+  const women = agents.filter(a => a.genre === "Féminin");
+  const men   = agents.filter(a => a.genre === "Masculin");
+  const over  = agents.filter(a => a.age >= 40);
+  const under = agents.filter(a => a.age < 40);
 
-    // Moyenne par genre
-    const women = agents.filter(agent => agent.genre === 'Féminin');
-    const men = agents.filter(agent => agent.genre === 'Masculin');
-    
-    const avgWomen = women.length > 0 ? 
-        Math.round(women.reduce((sum, agent) => sum + agent.score20, 0) / women.length) : 0;
-    const avgMen = men.length > 0 ? 
-        Math.round(men.reduce((sum, agent) => sum + agent.score20, 0) / men.length) : 0;
+  const avg = arr => (arr.length ? Math.round(arr.reduce((s, a) => s + a.score20, 0) / arr.length) : 0);
 
-    document.getElementById('averageWomen').textContent = scoreToText(avgWomen);
-    document.getElementById('averageMen').textContent = scoreToText(avgMen);
-
-    // Moyenne par tranche d'âge
-    const over40 = agents.filter(agent => agent.age >= 40);
-    const under40 = agents.filter(agent => agent.age < 40);
-    
-    const avgOver40 = over40.length > 0 ? 
-        Math.round(over40.reduce((sum, agent) => sum + agent.score20, 0) / over40.length) : 0;
-    const avgUnder40 = under40.length > 0 ? 
-        Math.round(under40.reduce((sum, agent) => sum + agent.score20, 0) / under40.length) : 0;
-
-    document.getElementById('averageOver40').textContent = scoreToText(avgOver40);
-    document.getElementById('averageUnder40').textContent = scoreToText(avgUnder40);
+  document.getElementById("totalCompleted").textContent   = total;
+  document.getElementById("averageWomen").textContent     = scoreToText(avg(women));
+  document.getElementById("averageMen").textContent       = scoreToText(avg(men));
+  document.getElementById("averageOver40").textContent    = scoreToText(avg(over));
+  document.getElementById("averageUnder40").textContent   = scoreToText(avg(under));
 }
 
-// Navigation entre onglets
+// =========================================================
+//  Navigation & fermeture
+// =========================================================
 function showTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.classList.remove('active');
-    });
-
-    document.getElementById(tabName + '-tab').classList.add('active');
-    event.target.classList.add('active');
+  document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".tab-button").forEach(b => b.classList.remove("active"));
+  document.getElementById(tabName + "-tab").classList.add("active");
+  event.target.classList.add("active");
 }
 
-// Fermer le quiz
 function closeQuiz() {
-    if (confirm('Êtes-vous sûr de vouloir fermer le quiz ?')) {
-        if (window.opener) {
-            window.close();
-        } else {
-            document.body.style.transition = 'opacity 0.5s ease';
-            document.body.style.opacity = '0.5';
-            setTimeout(() => {
-                window.location.href = 'thanks.html';
-            }, 500);
-        }
-    }
+  if (confirm("Êtes-vous sûr de vouloir fermer le quiz ?")) {
+    window.location.href = "thanks.html";
+  }
 }
+
+// Rendre les fonctions globales pour les onclick HTML
+window.showTab   = showTab;
+window.startQuiz = startQuiz;
+window.closeQuiz = closeQuiz;
+window.saveAnswer = saveAnswer;   
+window.submitQuiz = submitQuiz
+
