@@ -119,10 +119,15 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-.copyright{
-    font-size: 0.7em;
-    color: #ecf0f1;
-    text-align: right;
+#copyright{
+    position: fixed;
+    top: 5px;
+    right: 0; 
+    font-size: 0.4em; 
+    color: #f1ecec; 
+    margin: 0;
+    padding: 2px 5px;
+    z-index: 999; 
 }
 
 /* Formulaire d'informations personnelles */
@@ -133,14 +138,6 @@ body {
     margin-bottom: 30px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
 }
-
-/* #matricule {
-    placeholder="Matricule (6 chiffres)"
-    pattern="[0-9]{6}" 
-    maxlength="6" 
-    required
-    title="Veuillez saisir exactement 6 chiffres">
-} */
 
 .form-group {
     margin-bottom: 20px;
