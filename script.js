@@ -82,26 +82,6 @@ async function startQuiz() {
     }
 
     // Vérification si l'agent a déjà fait le Quiz (déjà fait mais double sécurité) 
-
-    // const snap = await getDocs(resultsCol);  // code taloha tsy mety tsara 
-    // if (snap.docs.some(d => d.data().matricule === matricule)) {
-    //     document.getElementById("previousScore").textContent =  "Eto no olana"; 
-    //     document.getElementById("userInfoSection").style.display = "none";
-    //     document.getElementById("quizCompletedSection").style.display = "block";
-    //     return;
-    // }
-
-    // const snap = await getDocs(resultsCol); // lente, sequentielle, download allDocs, maladroite
-    // const existingDoc = snap.docs.find(d => d.data().matricule === matricule);
-
-    // if (existingDoc) {
-    //     const previousScore = existingDoc.data().score20; // champ score 'note/20'
-    //     document.getElementById("previousScore").textContent = `${previousScore}`;
-    //     document.getElementById("userInfoSection").style.display = "none";
-    //     document.getElementById("quizCompletedSection").style.display = "block";
-    //     return;
-    // }
-
     const q = query(resultsCol, where("matricule", "==", matricule));
     const snap = await getDocs(q);
 
