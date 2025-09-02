@@ -52,19 +52,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 // =========================================================
 //  Vérifie si l’agent a déjà terminé
 // =========================================================
-// async function checkIfAlreadyCompleted() {
-//     const matricule = document.getElementById("matricule").value.trim();
-//     if (!matricule) return;
+async function checkIfAlreadyCompleted() {
+    const matricule = document.getElementById("matricule").value.trim();
+    if (!matricule) return;
 
-//     const snap = await getDocs(resultsCol);
-//     const existing = snap.docs.find(d => d.data().matricule === matricule);
+    const snap = await getDocs(resultsCol);
+    const existing = snap.docs.find(d => d.data().matricule === matricule);
 
-//     if (existing) {
-//         document.getElementById("previousScore").textContent = scoreToText(existing.data().score20);
-//         document.getElementById("userInfoSection").style.display = "none";
-//         document.getElementById("quizCompletedSection").style.display = "block";
-//     }
-// }
+    if (existing) {
+        document.getElementById("previousScore").textContent = scoreToText(existing.data().score20);
+        document.getElementById("userInfoSection").style.display = "none";
+        document.getElementById("quizCompletedSection").style.display = "block";
+    }
+}
 
 // =========================================================
 //  Démarrer le quiz
