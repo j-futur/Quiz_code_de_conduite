@@ -42,7 +42,7 @@ body {
 }
 
 .container {
-    max-width: 98%; /*800px;*/
+    max-width: 98%; /* 800px; 800px n'est pas résponsible */
     margin: 2vh auto; /* 2% haut et bas - auto gauche droite
     /* margin: 0 auto; */ /* 0 vertical - auto horizontal */
     background: white;
@@ -424,11 +424,11 @@ body {
   top: 40px;
   right: 40px;
   font-size: 24px;
-  /*color: #ff4d4d;*/
-  /*background: rgba(255, 255, 255, 0); */
+  /* color: #ff4d4d; je ne sais pas si nécessaire */
+  /* background: rgba(255, 255, 255, 0); trensparent mais pas nécessaire */
   border-radius: 12%;
   padding: 0;
-  box-shadow: 0 0 8px rgba(0,0,0,0.2);
+  /* box-shadow: 0 0 8px rgba(0,0,0,0.2); désactivé pour masquer le fond */
   z-index: 9999;
   transition: opacity 0.3s ease;
 }

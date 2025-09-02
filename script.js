@@ -46,24 +46,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadQuestions();
     await updateStats();
     await checkIfAlreadyCompleted();
+    await displayQuestionAnalysis();
 });
 
 // =========================================================
 //  Vérifie si l’agent a déjà terminé
 // =========================================================
-async function checkIfAlreadyCompleted() {
-    const matricule = document.getElementById("matricule").value.trim();
-    if (!matricule) return;
+// async function checkIfAlreadyCompleted() {
+//     const matricule = document.getElementById("matricule").value.trim();
+//     if (!matricule) return;
 
-    const snap = await getDocs(resultsCol);
-    const existing = snap.docs.find(d => d.data().matricule === matricule);
+//     const snap = await getDocs(resultsCol);
+//     const existing = snap.docs.find(d => d.data().matricule === matricule);
 
-    if (existing) {
-        document.getElementById("previousScore").textContent = scoreToText(existing.data().score20);
-        document.getElementById("userInfoSection").style.display = "none";
-        document.getElementById("quizCompletedSection").style.display = "block";
-    }
-}
+//     if (existing) {
+//         document.getElementById("previousScore").textContent = scoreToText(existing.data().score20);
+//         document.getElementById("userInfoSection").style.display = "none";
+//         document.getElementById("quizCompletedSection").style.display = "block";
+//     }
+// }
 
 // =========================================================
 //  Démarrer le quiz
@@ -211,7 +212,14 @@ async function submitQuiz() {
         score20,
         date: new Date().toLocaleDateString(),
         time: new Date().toLocaleTimeString(),
-        timestamp: new Date()
+        timestamp: new Date(),
+        questionResults: questions.map((q, i) => ({
+            questionId: i,
+            questionText: q.question,
+            isCorrect: corrections[i].isCorrect,
+            userAnswers: currentAnswers[i],
+            correctAnswers: q.correct
+        }))
     };
 
     await addDoc(resultsCol, agentResult);
@@ -280,6 +288,119 @@ async function updateStats() {
 }
 
 // =========================================================
+//  Analyse des questions (meilleure et pire question)
+// =========================================================
+async function analyzeQuestionPerformance() {
+    const snap = await getDocs(resultsCol);
+    const allResults = snap.docs.map(d => d.data());
+    
+    if (allResults.length === 0) {
+        console.log("Aucune donnée disponible pour l'analyse");
+        return null;
+    }
+
+    // Analyser les taux de réussite par question
+    const questionStats = {};
+    
+    allResults.forEach(result => {
+        if (result.questionResults) {
+            result.questionResults.forEach(qr => {
+                if (!questionStats[qr.questionId]) {
+                    questionStats[qr.questionId] = {
+                        questionText: qr.questionText,
+                        correct: 0,
+                        total: 0
+                    };
+                }
+                questionStats[qr.questionId].total++;
+                if (qr.isCorrect) {
+                    questionStats[qr.questionId].correct++;
+                }
+            });
+        }
+    });
+
+    // Calculer les taux de réussite
+    const questionStatsWithRate = Object.entries(questionStats).map(([id, stats]) => ({
+        questionId: parseInt(id),
+        questionText: stats.questionText,
+        correct: stats.correct,
+        total: stats.total,
+        successRate: Math.round((stats.correct / stats.total) * 100)
+    }));
+
+    // Trier par taux de réussite
+    questionStatsWithRate.sort((a, b) => b.successRate - a.successRate);
+
+    const bestQuestion = questionStatsWithRate[0];
+    const worstQuestion = questionStatsWithRate[questionStatsWithRate.length - 1];
+
+    return {
+        bestQuestion,
+        worstQuestion,
+        allStats: questionStatsWithRate
+    };
+}
+
+// Afficher l'analyse des questions dans l'onglet statistiques
+async function displayQuestionAnalysis() {
+    const analysis = await analyzeQuestionPerformance();
+    
+    if (!analysis) return;
+
+    const statsTab = document.getElementById("stats-tab");
+    
+    // Créer ou mettre à jour la section d'analyse
+    let analysisSection = document.getElementById("questionAnalysis");
+    if (!analysisSection) {
+        analysisSection = document.createElement("div");
+        analysisSection.id = "questionAnalysis";
+        analysisSection.style.marginTop = "40px";
+        analysisSection.innerHTML = `
+            <h3 style="text-align:center;margin-bottom:20px;color:#2c3e50;">📊 Analyse des Questions</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="bestQuestionRate">0%</div>
+                    <div class="stat-label">Meilleure question</div>
+                    <div id="bestQuestionText" style="font-size:0.8em;margin-top:5px;color:#666;"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="worstQuestionRate">0%</div>
+                    <div class="stat-label">Pire question</div>
+                    <div id="worstQuestionText" style="font-size:0.8em;margin-top:5px;color:#666;"></div>
+                </div>
+            </div>
+            <div id="detailedAnalysis" style="margin-top:20px;"></div>
+        `;
+        statsTab.appendChild(analysisSection);
+    }
+
+    // Mettre à jour les statistiques
+    document.getElementById("bestQuestionRate").textContent = `${analysis.bestQuestion.successRate}%`;
+    document.getElementById("bestQuestionText").textContent = `Q${analysis.bestQuestion.questionId + 1}: ${analysis.bestQuestion.questionText.substring(0, 50)}...`;
+    
+    document.getElementById("worstQuestionRate").textContent = `${analysis.worstQuestion.successRate}%`;
+    document.getElementById("worstQuestionText").textContent = `Q${analysis.worstQuestion.questionId + 1}: ${analysis.worstQuestion.questionText.substring(0, 50)}...`;
+
+    // Afficher l'analyse détaillée
+    const detailedDiv = document.getElementById("detailedAnalysis");
+    detailedDiv.innerHTML = `
+        <h4 style="margin:20px 0 10px;color:#2c3e50;">Détail par question :</h4>
+        <div style="max-height:300px;overflow-y:auto;border:1px solid #ddd;border-radius:5px;padding:10px;">
+            ${analysis.allStats.map(stat => `
+                <div style="margin-bottom:10px;padding:8px;background:${stat.successRate >= 70 ? '#d4edda' : stat.successRate >= 50 ? '#fff3cd' : '#f8d7da'};border-radius:3px;">
+                    <strong style="color:#2c3e50;">Question ${stat.questionId + 1}:</strong>
+                    <span style="font-weight:bold;color:${stat.successRate >= 70 ? '#155724' : stat.successRate >= 50 ? '#856404' : '#721c24'}">
+                        ${stat.correct}/${stat.total} (${stat.successRate}%)
+                    </span>
+                    <br><small style="color:#666;">${stat.questionText.substring(0, 80)}...</small>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// =========================================================
 //  Navigation & fermeture
 // =========================================================
 function showTab(tabName) {
@@ -289,13 +410,14 @@ function showTab(tabName) {
     event.target.classList.add("active");
 }
 
+
 // Quiz términé, fermeture avec effet fondu
 function closeQuiz() {
   if (confirm("Êtes-vous sûr de vouloir fermer le quiz ?")) {
     document.body.classList.add("fade-out");
     setTimeout(() => {
       window.location.href = "thanks.html";
-    }, 500); // délai pour laisser le temps à l'effet
+    }, 1000); // délai pour laisser le temps à l'effet
   }
 }
 
@@ -307,5 +429,6 @@ window.closeQuiz = closeQuiz;
 window.saveAnswer = saveAnswer;
 window.submitQuiz = submitQuiz;
 
+// Sécurité de la page 
 import { initLockProtection } from './lockProtection.js';
 initLockProtection();
