@@ -279,12 +279,28 @@ async function updateStats() {
     const under = agents.filter(a => a.age < 40);
 
     const avg = arr => (arr.length ? Math.round(arr.reduce((s, a) => s + a.score20, 0) / arr.length) : 0);
+    const avgPct = arr => (arr.length ? Math.round(arr.reduce((s, a) => s + a.score, 0) / arr.length) : 0);
 
     document.getElementById("totalCompleted").textContent = total;
     document.getElementById("averageWomen").textContent = scoreToText(avg(women));
     document.getElementById("averageMen").textContent = scoreToText(avg(men));
     document.getElementById("averageOver40").textContent = scoreToText(avg(over));
     document.getElementById("averageUnder40").textContent = scoreToText(avg(under));
+
+    // Calculate and update success rate
+    const successRate = avgPct(agents);
+    const rateElement = document.getElementById("successRate");
+    rateElement.textContent = `${successRate}%`;
+
+    // Apply color coding based on success rate
+    rateElement.className = 'stat-number'; // Reset classes
+    if (successRate > 65) {
+        rateElement.classList.add('success-rate-excellent');
+    } else if (successRate >= 50) {
+        rateElement.classList.add('success-rate-good');
+    } else {
+        rateElement.classList.add('success-rate-poor');
+    }
 }
 
 // =========================================================

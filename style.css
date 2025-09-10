@@ -333,6 +333,18 @@ body {
     margin-bottom: 10px;
 }
 
+.success-rate-excellent {
+    color: #27ae60 !important;
+}
+
+.success-rate-good {
+    color: #f39c12 !important;
+}
+
+.success-rate-poor {
+    color: #e74c3c !important;
+}
+
 .stat-label {
     color: #7f8c8d;
     font-size: 1.1em;
